@@ -1,9 +1,7 @@
 import bson.errors
 import bson.objectid
-from bson.json_util import dumps
 import motor
 from tornado import gen
-from tornado.escape import json_encode
 from tornado.web import RequestHandler
 
 
@@ -35,7 +33,7 @@ class CounterIDHandler(DatabaseHandler):
         if 'exc_info' in kwargs:
             typ, exc, tb = kwargs['exc_info']
             if isinstance(exc, bson.errors.InvalidId):
-                self.finish(json_encode({'e': str(exc)}))
+                self.finish({'err': str(exc)})
                 return
         super().write_error(status_code, **kwargs)
 
@@ -46,13 +44,12 @@ class CounterHandler(CounterIDHandler):
         object_id = self.get_object_id(counter_id)
         try:
             counter = yield motor.Op(self.db[collection].find_one, {'_id': bson.objectid.ObjectId(object_id)})
-            print(counter)
             if counter:
-                self.finish(json_encode({'n': counter['n']}))
+                self.finish({'n': counter['n']})
             else:
-                self.finish(json_encode({'e': 'document with object_id %s does not exist' % counter_id}))
+                self.finish({'err': 'document with object_id %s does not exist' % counter_id})
         except Exception as e:
-            self.finish(json_encode({'e': str(e)}))
+            self.finish({'err': str(e)})
 
     @gen.coroutine
     def post(self, collection, counter_id, n):
@@ -61,19 +58,19 @@ class CounterHandler(CounterIDHandler):
             if not n or not int(n):
                 n = 1
             result = yield motor.Op(self.db[collection].update, {'_id': object_id}, {'$inc': {'n': int(n)}})
-            self.finish(json_encode(str(result)))
+            self.finish({'resp': result['updatedExisting']})
         except Exception as e:
-            self.finish(json_encode({'e': str(e)}))
+            self.finish({'err': str(e)})
 
 
 class CreateHandler(DatabaseHandler):
     @gen.coroutine
     def get(self, collection):
         try:
-            result = yield motor.Op(self.db[collection].insert, {'n': 0})
-            self.finish(json_encode({'id': str(result)}))
+            object_id = yield motor.Op(self.db[collection].insert, {'n': 0})
+            self.finish({'id': str(object_id)})
         except Exception as e:
-            self.finish(str(e))
+            self.finish({'err': str(e)})
 
 
 class ResetHandler(CounterIDHandler):
@@ -82,7 +79,7 @@ class ResetHandler(CounterIDHandler):
         object_id = self.get_object_id(counter_id)
         try:
             result = yield motor.Op(self.db[collection].update, {'_id': object_id}, {'$set': {'n': 0}})
-            self.finish(dumps(result))
+            self.finish({'resp': result['updatedExisting']})
         except Exception as e:
-            self.finish(json_encode({'e': str(e)}))
+            self.finish({'err': str(e)})
 
