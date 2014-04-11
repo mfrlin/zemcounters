@@ -1,5 +1,6 @@
 import bson.errors
 import bson.objectid
+from bson.json_util import dumps
 import motor
 from tornado import gen
 from tornado.escape import json_encode
@@ -17,7 +18,6 @@ class TestHandler(RequestHandler):
     def post(self):
         db = self.settings['db']
         result = yield motor.Op(db.counters.update, {'_id': "test_object"}, {'$inc': {'n': 1}}, upsert=True)
-        print(result)
         self.redirect('/')
 
 
@@ -27,35 +27,38 @@ class DatabaseHandler(RequestHandler):
         self.db = self.settings['db']
 
 
-class CounterHandler(DatabaseHandler):
-    @gen.coroutine
-    def get(self, object_id_string):
-        try:
-            object_id = bson.objectid.ObjectId(object_id_string)
-        except bson.errors.InvalidId as e:
-            self.finish(json_encode({'e': str(e)}))
-            return
+class CounterIDHandler(DatabaseHandler):
+    def get_object_id(self, counter_id):
+        return bson.objectid.ObjectId(counter_id)
 
+    def write_error(self, status_code, **kwargs):
+        if 'exc_info' in kwargs:
+            typ, exc, tb = kwargs['exc_info']
+            if isinstance(exc, bson.errors.InvalidId):
+                self.finish(json_encode({'e': str(exc)}))
+                return
+        super(CounterIDHandler, self).write_error(status_code, **kwargs)
+
+
+class CounterHandler(CounterIDHandler):
+    @gen.coroutine
+    def get(self, collection, counter_id):
+        object_id = self.get_object_id(counter_id)
         try:
-            counter = yield motor.Op(self.db.counters.find_one, {'_id': bson.objectid.ObjectId(object_id)})
+            counter = yield motor.Op(self.db[collection].find_one, {'_id': bson.objectid.ObjectId(object_id)})
             print(counter)
             if counter:
                 self.finish(json_encode({'n': counter['n']}))
             else:
-                self.finish(json_encode({'e': 'document with object_id %s does not exist' % object_id_string}))
+                self.finish(json_encode({'e': 'document with object_id %s does not exist' % counter_id}))
         except Exception as e:
             self.finish(json_encode({'e': str(e)}))
 
     @gen.coroutine
-    def post(self, object_id_string):
+    def post(self, collection, counter_id):
+        object_id = self.get_object_id(counter_id)
         try:
-            object_id = bson.objectid.ObjectId(object_id_string)
-        except bson.errors.InvalidId as e:
-            self.finish(json_encode({'e': str(e)}))
-            return
-
-        try:
-            result = yield motor.Op(self.db.counters.update, {'_id': object_id}, {'$inc': {'n': 1}})
+            result = yield motor.Op(self.db[collection].update, {'_id': object_id}, {'$inc': {'n': 1}})
             self.finish(json_encode(str(result)))
         except Exception as e:
             self.finish(json_encode({'e': str(e)}))
@@ -63,26 +66,21 @@ class CounterHandler(DatabaseHandler):
 
 class CreateHandler(DatabaseHandler):
     @gen.coroutine
-    def get(self):
+    def get(self, collection):
         try:
-            result = yield motor.Op(self.db.counters.insert, {'n': 0})
+            result = yield motor.Op(self.db[collection].insert, {'n': 0})
             self.finish(json_encode({'id': str(result)}))
         except Exception as e:
             self.finish(str(e))
 
 
-class ResetHandler(DatabaseHandler):
+class ResetHandler(CounterIDHandler):
     @gen.coroutine
-    def get(self, object_id_string):
+    def get(self, collection, counter_id):
+        object_id = self.get_object_id(counter_id)
         try:
-            object_id = bson.objectid.ObjectId(object_id_string)
-        except bson.errors.InvalidId as e:
-            self.finish(json_encode({'e': str(e)}))
-            return
-
-        try:
-            result = yield motor.Op(self.db.counters.update, {'_id': object_id}, {'$set': {'n': 0}})
-            self.finish(json_encode(str(result)))
+            result = yield motor.Op(self.db[collection].update, {'_id': object_id}, {'$set': {'n': 0}})
+            self.finish(dumps(result))
         except Exception as e:
             self.finish(json_encode({'e': str(e)}))
 

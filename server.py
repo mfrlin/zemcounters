@@ -22,9 +22,9 @@ def main():
     application = tornado.web.Application(
         [
             (r'/', TestHandler),
-            (r'/counters/?', CreateHandler),
-            (r'/counters/([a-zA-Z0-9]+)/?', CounterHandler),
-            (r'/counters/([a-zA-Z0-9]+)/reset/?', ResetHandler),
+            (r'/(?P<collection>[\w]{1,128})/?', CreateHandler),
+            (r'/(?P<collection>[\w]{1,128})/(?P<counter_id>[a-zA-Z0-9]{24})/?', CounterHandler),
+            (r'/(?P<collection>[\w]{1,128})/(?P<counter_id>[a-zA-Z0-9]+)/reset/?', ResetHandler),
         ],
         template_path=os.path.join(os.path.dirname(__file__), "templates"),
     )
