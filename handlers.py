@@ -37,12 +37,12 @@ class CounterIDHandler(DatabaseHandler):
             if isinstance(exc, bson.errors.InvalidId):
                 self.finish(json_encode({'e': str(exc)}))
                 return
-        super(CounterIDHandler, self).write_error(status_code, **kwargs)
+        super().write_error(status_code, **kwargs)
 
 
 class CounterHandler(CounterIDHandler):
     @gen.coroutine
-    def get(self, collection, counter_id):
+    def get(self, collection, counter_id, *args):
         object_id = self.get_object_id(counter_id)
         try:
             counter = yield motor.Op(self.db[collection].find_one, {'_id': bson.objectid.ObjectId(object_id)})
@@ -55,10 +55,12 @@ class CounterHandler(CounterIDHandler):
             self.finish(json_encode({'e': str(e)}))
 
     @gen.coroutine
-    def post(self, collection, counter_id):
+    def post(self, collection, counter_id, n):
         object_id = self.get_object_id(counter_id)
         try:
-            result = yield motor.Op(self.db[collection].update, {'_id': object_id}, {'$inc': {'n': 1}})
+            if not n or not int(n):
+                n = 1
+            result = yield motor.Op(self.db[collection].update, {'_id': object_id}, {'$inc': {'n': int(n)}})
             self.finish(json_encode(str(result)))
         except Exception as e:
             self.finish(json_encode({'e': str(e)}))
