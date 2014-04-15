@@ -6,7 +6,7 @@ import tornado.ioloop
 import tornado.web
 from tornado.options import define, options, parse_command_line
 
-from handlers import CounterHandler, CreateHandler, ResetHandler, TestHandler
+from handlers import CounterHandler, CreateHandler, ResetHandler
 
 define("port", default=8888, help="run on the given port", type=int)
 define("mongodb_hosts", default="127.0.0.1:27017", type=str,
@@ -21,12 +21,11 @@ def main():
     parse_command_line()
     application = tornado.web.Application(
         [
-            (r'/', TestHandler),
-            (r'/([\w]{1,128})/?', CreateHandler),
-            (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/?([0-9]+)?/?', CounterHandler),
-            (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/reset/?', ResetHandler),
+            (r'/([\w]{1,128})/', CreateHandler),
+            (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/?([0-9]+)?', CounterHandler),
+            (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/reset', ResetHandler),
         ],
-        template_path=os.path.join(os.path.dirname(__file__), "templates"),
+        template_path=os.path.join(os.path.dirname(__file__), "../templates"),
     )
 
     server = tornado.httpserver.HTTPServer(application)

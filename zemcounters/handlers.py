@@ -5,20 +5,6 @@ from tornado import gen
 from tornado.web import RequestHandler
 
 
-class TestHandler(RequestHandler):
-    @gen.coroutine
-    def get(self):
-        db = self.settings['db']
-        document = yield motor.Op(db.counters.find_one, {'_id': "test_object"})
-        self.render("index.html", counter=str(document))
-
-    @gen.coroutine
-    def post(self):
-        db = self.settings['db']
-        result = yield motor.Op(db.counters.update, {'_id': "test_object"}, {'$inc': {'n': 1}}, upsert=True)
-        self.redirect('/')
-
-
 class DatabaseHandler(RequestHandler):
     def __init__(self, application, request, **kwargs):
         super().__init__(application, request, **kwargs)
@@ -65,10 +51,12 @@ class CounterHandler(CounterIDHandler):
 
 class CreateHandler(DatabaseHandler):
     @gen.coroutine
-    def get(self, collection):
+    def post(self, collection):
         try:
             object_id = yield motor.Op(self.db[collection].insert, {'n': 0})
-            self.finish({'id': str(object_id)})
+            self.set_status(201)
+            self.set_header('Location', '/%s/%s' % (collection, object_id))
+            self.finish({})
         except Exception as e:
             self.finish({'err': str(e)})
 
