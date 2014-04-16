@@ -1,5 +1,3 @@
-import os
-
 import motor
 import tornado.httpserver
 import tornado.ioloop
@@ -16,24 +14,22 @@ define("mongodb_replica", default="foo", type=str,
 define("mongodb_db", default="test_db", type=str,
        help="mongodb database name")
 
+application = tornado.web.Application(
+    [
+        (r'/([\w]{1,128})/', CreateHandler),
+        (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/?([0-9]+)?', CounterHandler),
+        (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/reset', ResetHandler),
+    ])
+
 
 def main():
     parse_command_line()
-    application = tornado.web.Application(
-        [
-            (r'/([\w]{1,128})/', CreateHandler),
-            (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/?([0-9]+)?', CounterHandler),
-            (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/reset', ResetHandler),
-        ],
-        template_path=os.path.join(os.path.dirname(__file__), "../templates"),
-    )
-
     server = tornado.httpserver.HTTPServer(application)
     server.bind(options.port)
     server.start(0)
 
     db = motor.MotorReplicaSetClient(options.mongodb_hosts,
-                                     replicaSet=options.mongodb_replica).open_sync()[options.mongodb_db]
+                                     replicaSet=options.mongodb_replica)[options.mongodb_db]
 
     application.settings['db'] = db
     tornado.ioloop.IOLoop.instance().start()

@@ -1,6 +1,5 @@
 import bson.errors
 import bson.objectid
-import motor
 from tornado import gen
 from tornado.web import RequestHandler
 
@@ -29,7 +28,7 @@ class CounterHandler(CounterIDHandler):
     def get(self, collection, counter_id, *args):
         object_id = self.get_object_id(counter_id)
         try:
-            counter = yield motor.Op(self.db[collection].find_one, {'_id': bson.objectid.ObjectId(object_id)})
+            counter = yield self.db[collection].find_one({'_id': bson.objectid.ObjectId(object_id)})
             if counter:
                 self.finish({'n': counter['n']})
             else:
@@ -43,7 +42,7 @@ class CounterHandler(CounterIDHandler):
         try:
             if not n or not int(n):
                 n = 1
-            result = yield motor.Op(self.db[collection].update, {'_id': object_id}, {'$inc': {'n': int(n)}})
+            result = yield self.db[collection].update({'_id': object_id}, {'$inc': {'n': int(n)}})
             self.finish({'resp': result['updatedExisting']})
         except Exception as e:
             self.finish({'err': str(e)})
@@ -53,7 +52,9 @@ class CreateHandler(DatabaseHandler):
     @gen.coroutine
     def post(self, collection):
         try:
-            object_id = yield motor.Op(self.db[collection].insert, {'n': 0})
+            print(self.db)
+            object_id = yield self.db[collection].insert({'n': 0})
+            print("after")
             self.set_status(201)
             self.set_header('Location', '/%s/%s' % (collection, object_id))
             self.finish({})
@@ -66,7 +67,7 @@ class ResetHandler(CounterIDHandler):
     def get(self, collection, counter_id):
         object_id = self.get_object_id(counter_id)
         try:
-            result = yield motor.Op(self.db[collection].update, {'_id': object_id}, {'$set': {'n': 0}})
+            result = yield self.db[collection].update({'_id': object_id}, {'$set': {'n': 0}})
             self.finish({'resp': result['updatedExisting']})
         except Exception as e:
             self.finish({'err': str(e)})
