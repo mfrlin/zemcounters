@@ -1,9 +1,15 @@
-import unittest
+import os
+import sys
 
 import motor
 import pymongo.errors
 import tornado.testing
-from zemcounters.server import application
+import tornado.ioloop
+
+#  Importing app from zemcounters.server
+APP_ROOT = os.path.abspath(os.path.join(os.path.dirname(__file__), '../zemcounters'))
+sys.path.append(APP_ROOT)
+from server import application
 
 db = motor.MotorReplicaSetClient('localhost', replicaSet='foo')['test_db']
 application.settings['db'] = db
@@ -27,6 +33,9 @@ class TestHandlerBase(tornado.testing.AsyncHTTPTestCase):
         clear_db()
         super().setUp()
 
+    def get_new_ioloop(self):
+        return tornado.ioloop.IOLoop.instance()
+
 
 class TestCreateHandler(TestHandlerBase):
     def create_counters_in_different_collections_test(self):
@@ -39,9 +48,4 @@ class TestCreateHandler(TestHandlerBase):
             self.assertEqual(response.code, 201)
             self.assertTrue(
                 response.headers['Location'].startswith(name),
-                "response.headers['Location'] did not start with %s" % name
-            )
-
-
-if __name__ == '__main__':
-    unittest.main()
+                "response.headers['Location'] did not start with %s" % name)
