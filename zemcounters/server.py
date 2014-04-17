@@ -2,6 +2,7 @@ import motor
 import tornado.httpserver
 import tornado.ioloop
 import tornado.web
+from pymongo.read_preferences import ReadPreference
 from tornado.options import define, options, parse_command_line
 
 from handlers import CounterHandler, CreateHandler, ResetHandler
@@ -30,6 +31,7 @@ def main():
 
     db = motor.MotorReplicaSetClient(options.mongodb_hosts,
                                      replicaSet=options.mongodb_replica)[options.mongodb_db]
+    db.read_preference = ReadPreference.PRIMARY_PREFERRED
 
     application.settings['db'] = db
     tornado.ioloop.IOLoop.instance().start()

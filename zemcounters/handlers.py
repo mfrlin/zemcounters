@@ -1,6 +1,10 @@
+import time
+
 import bson.errors
 import bson.objectid
+import pymongo.errors
 from tornado import gen
+from tornado.ioloop import IOLoop
 from tornado.web import RequestHandler
 
 
@@ -39,36 +43,49 @@ class CounterHandler(CounterIDHandler):
     @gen.coroutine
     def post(self, collection, counter_id, n):
         object_id = self.get_object_id(counter_id)
-        try:
-            if not n or not int(n):
-                n = 1
-            result = yield self.db[collection].update({'_id': object_id}, {'$inc': {'n': int(n)}})
-            self.finish({'resp': result['updatedExisting']})
-        except Exception as e:
-            self.finish({'err': str(e)})
+        if not n or not int(n):
+            n = 1
+        for i in range(40):
+            try:
+                result = yield self.db[collection].update({'_id': object_id}, {'$inc': {'n': int(n)}})
+                self.finish({'resp': result['updatedExisting']})
+                break
+            except pymongo.errors.AutoReconnect:
+                loop = IOLoop.instance()
+                yield gen.Task(loop.add_timeout, time.time() + 0.25)
+            except Exception as e:
+                self.finish({'err': str(e)})
 
 
 class CreateHandler(DatabaseHandler):
     @gen.coroutine
     def post(self, collection):
-        try:
-            print(self.db)
-            object_id = yield self.db[collection].insert({'n': 0})
-            print("after")
-            self.set_status(201)
-            self.set_header('Location', '/%s/%s' % (collection, object_id))
-            self.finish({})
-        except Exception as e:
-            self.finish({'err': str(e)})
+        for i in range(40):
+            try:
+                object_id = yield self.db[collection].insert({'n': 0})
+                self.set_status(201)
+                self.set_header('Location', '/%s/%s' % (collection, object_id))
+                self.finish({})
+                break
+            except pymongo.errors.AutoReconnect:
+                loop = IOLoop.instance()
+                yield gen.Task(loop.add_timeout, time.time() + 0.25)
+            except Exception as e:
+                self.finish({'err': str(e)})
 
 
 class ResetHandler(CounterIDHandler):
     @gen.coroutine
     def get(self, collection, counter_id):
         object_id = self.get_object_id(counter_id)
-        try:
-            result = yield self.db[collection].update({'_id': object_id}, {'$set': {'n': 0}})
-            self.finish({'resp': result['updatedExisting']})
-        except Exception as e:
-            self.finish({'err': str(e)})
+        for i in range(40):
+            try:
+                result = yield self.db[collection].update({'_id': object_id}, {'$set': {'n': 0}})
+                self.finish({'resp': result['updatedExisting']})
+                break
+            except pymongo.errors.AutoReconnect:
+                loop = IOLoop.instance()
+                yield gen.Task(loop.add_timeout, time.time() + 0.25)
+            except Exception as e:
+                self.finish({'err': str(e)})
 
