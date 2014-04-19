@@ -31,14 +31,11 @@ class CounterHandler(CounterIDHandler):
     @gen.coroutine
     def get(self, collection, counter_id, *args):
         object_id = self.get_object_id(counter_id)
-        try:
-            counter = yield self.db[collection].find_one({'_id': bson.objectid.ObjectId(object_id)})
-            if counter:
-                self.finish({'n': counter['n']})
-            else:
-                self.finish({'err': 'document with object_id %s does not exist' % counter_id})
-        except Exception as e:
-            self.finish({'err': str(e)})
+        counter = yield self.db[collection].find_one({'_id': bson.objectid.ObjectId(object_id)})
+        if counter:
+            self.finish({'n': counter['n']})
+        else:
+            self.finish({'err': 'document with object_id %s does not exist' % counter_id})
 
     @gen.coroutine
     def post(self, collection, counter_id, n):
@@ -53,8 +50,6 @@ class CounterHandler(CounterIDHandler):
             except pymongo.errors.AutoReconnect:
                 loop = IOLoop.instance()
                 yield gen.Task(loop.add_timeout, time.time() + 0.25)
-            except Exception as e:
-                self.finish({'err': str(e)})
 
 
 class CreateHandler(DatabaseHandler):
@@ -70,8 +65,6 @@ class CreateHandler(DatabaseHandler):
             except pymongo.errors.AutoReconnect:
                 loop = IOLoop.instance()
                 yield gen.Task(loop.add_timeout, time.time() + 0.25)
-            except Exception as e:
-                self.finish({'err': str(e)})
 
 
 class ResetHandler(CounterIDHandler):
@@ -86,6 +79,4 @@ class ResetHandler(CounterIDHandler):
             except pymongo.errors.AutoReconnect:
                 loop = IOLoop.instance()
                 yield gen.Task(loop.add_timeout, time.time() + 0.25)
-            except Exception as e:
-                self.finish({'err': str(e)})
 
