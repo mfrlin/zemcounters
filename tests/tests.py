@@ -18,11 +18,8 @@ sync_db = pymongo.MongoReplicaSetClient(replicaSet='foo')['test_db']
 
 
 def clear_db():
-    for collection in sync_db.collection_names():
-        try:
-            sync_db.drop_collection(collection)
-        except pymongo.errors.OperationFailure:  # we can't drop system namespaces like indexes etc
-            pass
+    for collection in sync_db.collection_names(include_system_collections=False):
+        sync_db.drop_collection(collection)
 
 
 class TestHandlerBase(tornado.testing.AsyncHTTPTestCase):
