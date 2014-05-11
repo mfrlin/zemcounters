@@ -5,14 +5,15 @@ import bson.objectid
 import pymongo.errors
 from tornado import gen
 from tornado.ioloop import IOLoop
-from tornado.web import RequestHandler
+import tornado.web
 
 
 FAILOVER_TRIES = 40
 FAILOVER_SLEEP = 0.25
+COUNTER_DOES_NOT_EXIST_MSG = 'Counter with id {0} does not exist'
 
 
-class DatabaseHandler(RequestHandler):
+class DatabaseHandler(tornado.web.RequestHandler):
     def __init__(self, application, request, **kwargs):
         super().__init__(application, request, **kwargs)
         self.db = self.settings['db']
@@ -26,20 +27,25 @@ class CounterIDHandler(DatabaseHandler):
         if 'exc_info' in kwargs:
             typ, exc, tb = kwargs['exc_info']
             if isinstance(exc, bson.errors.InvalidId):
-                self.finish({'err': str(exc)})
+                self.set_status(400, str(exc))
+                self.finish({})
+                return
+            if isinstance(exc, pymongo.errors.AutoReconnect):
+                self.set_status(503, str(exc))
+                self.finish({})
                 return
         super().write_error(status_code, **kwargs)
 
 
 class CounterHandler(CounterIDHandler):
     @gen.coroutine
-    def get(self, collection, counter_id):
+    def get(self, collection, counter_id, *args):
         object_id = self.get_object_id(counter_id)
         counter = yield self.db[collection].find_one({'_id': bson.objectid.ObjectId(object_id)})
         if counter:
             self.finish({'n': counter['n']})
         else:
-            self.finish({'err': 'document with object_id %s does not exist' % counter_id})
+            raise tornado.web.HTTPError(404, reason=COUNTER_DOES_NOT_EXIST_MSG.format(counter_id))
 
     @gen.coroutine
     def increment_counter(self, collection, object_id, n):
@@ -48,6 +54,9 @@ class CounterHandler(CounterIDHandler):
                 result = yield self.db[collection].update({'_id': object_id}, {'$inc': {'n': int(n)}})
                 return result
             except pymongo.errors.AutoReconnect:
+                # re-raising exception at the last try
+                if i == FAILOVER_TRIES - 1:
+                    raise
                 loop = IOLoop.instance()
                 yield gen.Task(loop.add_timeout, time.time() + FAILOVER_SLEEP)
 
@@ -57,7 +66,10 @@ class CounterHandler(CounterIDHandler):
         if not n or not int(n):
             n = 1
         result = yield self.increment_counter(collection, object_id, n)
-        self.finish({'resp': result['updatedExisting']})
+        if result['updatedExisting']:
+            self.finish({'resp': True})
+        else:
+            raise tornado.web.HTTPError(404, reason=COUNTER_DOES_NOT_EXIST_MSG.format(counter_id))
 
 
 class CreateHandler(DatabaseHandler):
@@ -68,12 +80,13 @@ class CreateHandler(DatabaseHandler):
                 yield self.db[collection].insert(data)
                 break
             except pymongo.errors.AutoReconnect:
+                # re-raising exception at the last try
+                if i == FAILOVER_TRIES - 1:
+                    raise
                 loop = IOLoop.instance()
                 yield gen.Task(loop.add_timeout, time.time() + FAILOVER_SLEEP)
             except pymongo.errors.DuplicateKeyError:
                 break
-        else:
-            raise Exception("Can't create new counter.")
 
     @gen.coroutine
     def post(self, collection):
@@ -84,7 +97,7 @@ class CreateHandler(DatabaseHandler):
         }
         yield self.create_counter(collection, data)
         self.set_status(201)
-        self.set_header('Location', '/%s/%s' % (collection, str(object_id)))
+        self.set_header('Location', '/{0}/{1}'.format(collection, str(object_id)))
         self.finish({})
 
 
@@ -96,11 +109,17 @@ class ResetHandler(CounterIDHandler):
                 result = yield self.db[collection].update({'_id': object_id}, {'$set': {'n': 0}})
                 return result
             except pymongo.errors.AutoReconnect:
+                # re-raising exception at the last try
+                if i == FAILOVER_TRIES - 1:
+                    raise
                 loop = IOLoop.instance()
                 yield gen.Task(loop.add_timeout, time.time() + FAILOVER_SLEEP)
 
     @gen.coroutine
-    def get(self, collection, counter_id):
+    def post(self, collection, counter_id):
         object_id = self.get_object_id(counter_id)
         result = yield self.reset_counter(collection, object_id)
-        self.finish({'resp': result['updatedExisting']})
+        if result['updatedExisting']:
+            self.finish({'resp': True})
+        else:
+            raise tornado.web.HTTPError(404, reason=COUNTER_DOES_NOT_EXIST_MSG.format(counter_id))
