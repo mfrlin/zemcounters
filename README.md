@@ -27,7 +27,7 @@ POST: Increments the counter by 1.
 POST: Increments the counter by n.
 
 `/<collection>/<counter_id>/reset`  
-GET: Resets the counter to 0.
+POST: Resets the counter to 0.
 
 
 
