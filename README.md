@@ -19,7 +19,7 @@ POST: Creates a counter in a collection and returns the location in `Location` h
 MongoDB's namespace limitations apply here, so you are limited in amount of collections you can have.
 
 `/<collection>/<counter_id>`  
-regex for counter_id: `([a-zA-Z0-9]{24})`  
+regex for counter_id: `([a-zA-Z0-9]{24})`
 GET: Returns the value of the counter via JSON.
 POST: Increments the counter by 1.
 
