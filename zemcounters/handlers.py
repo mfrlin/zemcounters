@@ -63,7 +63,7 @@ class CounterHandler(CounterIDHandler):
     @gen.coroutine
     def post(self, collection, counter_id, n):
         object_id = self.get_object_id(counter_id)
-        if not n or not int(n):
+        if n is None:
             n = 1
         result = yield self.increment_counter(collection, object_id, n)
         if result['updatedExisting']:
