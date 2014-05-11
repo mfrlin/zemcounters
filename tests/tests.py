@@ -35,8 +35,8 @@ class TestHandlerBase(tornado.testing.AsyncHTTPTestCase):
         return tornado.ioloop.IOLoop.instance()
 
 
-class TestCreateHandler(TestHandlerBase):
-    def create_counters_in_different_collections_test(self):
+class TestHandlers(TestHandlerBase):
+    def test_create_counters_in_different_collections(self):
         test_names = ['/counters/', '/random/', '/123_a/']
         for name in test_names:
             self.http_client.fetch(self.get_url(name), self.stop, body="123", method='POST')
@@ -47,7 +47,7 @@ class TestCreateHandler(TestHandlerBase):
                 response.headers['Location'].startswith(name),
                 "response.headers['Location'] did not start with %s" % name)
 
-    def increment_counter_test(self):
+    def test_increment_counter(self):
         self.http_client.fetch(self.get_url('/counters/'), self.stop, body="123", method='POST')
         response = self.wait()
         location = response.headers['Location']
@@ -61,7 +61,7 @@ class TestCreateHandler(TestHandlerBase):
         counter_value = json.loads(response.body.decode('utf-8'))['n']
         self.assertEqual(counter_value, times_to_inc)
 
-    def increment_counter_by_different_values_test(self):
+    def test_increment_counter_by_different_values(self):
         self.http_client.fetch(self.get_url('/counters/'), self.stop, body="123", method='POST')
         response = self.wait()
         location = response.headers['Location']
@@ -75,6 +75,47 @@ class TestCreateHandler(TestHandlerBase):
             counter_value = json.loads(response.body.decode('utf-8'))['n']
             self.assertEqual(counter_value, prev_counter_value + i)
             prev_counter_value = counter_value
+
+    def test_reset_counter(self):
+        self.http_client.fetch(self.get_url('/counters/'), self.stop, body="123", method='POST')
+        response = self.wait()
+        location = response.headers['Location']
+        for i in range(23):
+            self.http_client.fetch(self.get_url(location + '/' + str(i)), self.stop, body="123", method='POST')
+            self.wait()
+
+        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        response = self.wait()
+        counter_value = json.loads(response.body.decode('utf-8'))['n']
+        self.assertNotEqual(counter_value, 0)
+
+        self.http_client.fetch(self.get_url(location + '/reset'), self.stop, body="123", method='POST')
+        self.wait()
+        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        response = self.wait()
+        counter_value = json.loads(response.body.decode('utf-8'))['n']
+        self.assertEqual(counter_value, 0)
+
+    def test_404_on_counter_not_found(self):
+        location = '/fakecounterdir/fakecountername12345678'
+
+        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        request = self.wait()
+        self.assertEqual(request.code, 404)
+
+        self.http_client.fetch(self.get_url(location), self.stop, method='POST', body='123')
+        request = self.wait()
+        self.assertEqual(request.code, 404)
+
+        self.http_client.fetch(self.get_url(location+'/12'), self.stop, method='POST', body='123')
+        request = self.wait()
+        self.assertEqual(request.code, 404)
+
+        self.http_client.fetch(self.get_url(location+'/reset'), self.stop, method='POST', body='123')
+        request = self.wait()
+        self.assertEqual(request.code, 404)
+
+
 
 
 
