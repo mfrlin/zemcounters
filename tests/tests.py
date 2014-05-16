@@ -100,24 +100,20 @@ class TestHandlers(TestHandlerBase):
         location = '/fakecounterdir/fakecountername12345678'
 
         self.http_client.fetch(self.get_url(location), self.stop, method='GET')
-        request = self.wait()
-        self.assertEqual(request.code, 404)
+        response = self.wait()
+        self.assertEqual(response.code, 404)
 
         self.http_client.fetch(self.get_url(location), self.stop, method='POST', body='123')
-        request = self.wait()
-        self.assertEqual(request.code, 404)
+        response = self.wait()
+        self.assertEqual(response.code, 404)
 
         self.http_client.fetch(self.get_url(location+'/12'), self.stop, method='POST', body='123')
-        request = self.wait()
-        self.assertEqual(request.code, 404)
+        response = self.wait()
+        self.assertEqual(response.code, 404)
 
         self.http_client.fetch(self.get_url(location+'/reset'), self.stop, method='POST', body='123')
-        request = self.wait()
-        self.assertEqual(request.code, 404)
-
-        self.http_client.fetch(self.get_url(location), self.stop, method='DELETE')
-        request = self.wait()
-        self.assertEqual(request.code, 404)
+        response = self.wait()
+        self.assertEqual(response.code, 404)
 
     def test_delete_counter(self):
         self.http_client.fetch(self.get_url('/counters/'), self.stop, body="123", method='POST')
@@ -129,7 +125,13 @@ class TestHandlers(TestHandlerBase):
 
         self.http_client.fetch(self.get_url(location), self.stop, method='DELETE')
         response = self.wait()
-        self.assertEqual(response.code, 200)
+        deleted = json.loads(response.body.decode('utf-8'))['del']
+        self.assertEqual(deleted, 1)
+
+        self.http_client.fetch(self.get_url(location), self.stop, method='DELETE')
+        response = self.wait()
+        deleted = json.loads(response.body.decode('utf-8'))['del']
+        self.assertEqual(deleted, 0)
 
         self.http_client.fetch(self.get_url(location), self.stop, method='GET')
         response = self.wait()

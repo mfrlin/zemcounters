@@ -71,6 +71,26 @@ class CounterHandler(CounterIDHandler):
         else:
             raise tornado.web.HTTPError(404, reason=COUNTER_DOES_NOT_EXIST_MSG.format(counter_id))
 
+    @gen.coroutine
+    def delete_counter(self, collection, data):
+        for i in range(FAILOVER_TRIES):
+            try:
+                result = yield self.db[collection].remove(data)
+                return result
+            except pymongo.errors.AutoReconnect:
+                # re-raising exception at the last try
+                if i == FAILOVER_TRIES - 1:
+                    raise
+                loop = IOLoop.instance()
+                yield gen.Task(loop.add_timeout, time.time() + FAILOVER_SLEEP)
+
+    @gen.coroutine
+    def delete(self, collection, counter_id, *args):
+        object_id = self.get_object_id(counter_id)
+        data = {'_id': object_id}
+        result = yield self.delete_counter(collection, data)
+        self.finish({'del': result['n']})
+
 
 class CreateHandler(DatabaseHandler):
     @gen.coroutine

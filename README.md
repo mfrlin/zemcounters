@@ -15,18 +15,24 @@ API:
 
 `/<collection>/`  
 regex for collection: `([\w]{1,128})`
+
 POST: Creates a counter in a collection and returns the location in `Location` header with status 201.  
 MongoDB's namespace limitations apply here, so you are limited in amount of collections you can have.
 
 `/<collection>/<counter_id>`  
 regex for counter_id: `([a-zA-Z0-9]{24})`
+
 GET: Returns the value of the counter via JSON.
 POST: Increments the counter by 1.
+DELETE: Deletes the counter. Returns 1 via JSON if counter was deleted and 0 if there was no counter with this ID to be deleted.
+This doesn't mean an error because if network error occurs counter can be deleted and then on retry 0 is returned.
 
-`/<collection>/<counter_id>/<n>`  
+`/<collection>/<counter_id>/<n>`
+
 POST: Increments the counter by n.
 
-`/<collection>/<counter_id>/reset`  
+`/<collection>/<counter_id>/reset`
+
 POST: Resets the counter to 0.
 
 
