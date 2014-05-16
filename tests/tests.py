@@ -115,6 +115,25 @@ class TestHandlers(TestHandlerBase):
         request = self.wait()
         self.assertEqual(request.code, 404)
 
+        self.http_client.fetch(self.get_url(location), self.stop, method='DELETE')
+        request = self.wait()
+        self.assertEqual(request.code, 404)
+
+    def test_delete_counter(self):
+        self.http_client.fetch(self.get_url('/counters/'), self.stop, body="123", method='POST')
+        response = self.wait()
+        location = response.headers['Location']
+        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        response = self.wait()
+        self.assertEqual(response.code, 200)
+
+        self.http_client.fetch(self.get_url(location), self.stop, method='DELETE')
+        response = self.wait()
+        self.assertEqual(response.code, 200)
+
+        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        response = self.wait()
+        self.assertEqual(response.code, 404)
 
 
 
