@@ -25,10 +25,10 @@ settings = dict(
 
 application = tornado.web.Application(
     [
-        (r'/([\w]{1,128})/', CreateHandler),
-        (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/?([0-9]+)?', CounterHandler),
-        (r'/([\w]{1,128})/([a-zA-Z0-9]{24})/reset', ResetHandler),
-        (r'/tail/([0-9]+)', tailer.TailHandler),
+        (r'/cnt/([\w]{1,128})/', CreateHandler),
+        (r'/cnt/([\w]{1,128})/([a-zA-Z0-9]{24})/?([0-9]+)?', CounterHandler),
+        (r'/cnt/([\w]{1,128})/([a-zA-Z0-9]{24})/reset', ResetHandler),
+        (r'/tail/([a-zA-Z0-9]{24})?', tailer.TailHandler),
         (r'/test-socket', tailer.TestSocketHandler),
     ],
     **settings)

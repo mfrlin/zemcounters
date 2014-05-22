@@ -1,4 +1,5 @@
-var url = "ws://" + location.host + "/tail/3";
+var url = "ws://localhost:8888/tail/";
+console.log(url);
 var ws = new WebSocket(url);
 
 ws.onmessage = function(event) {

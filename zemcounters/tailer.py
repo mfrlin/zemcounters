@@ -1,7 +1,9 @@
 import time
 
 import bson
-
+import bson.objectid
+import bson.errors
+import tornado.escape
 from tornado.websocket import WebSocketHandler
 from tornado.web import RequestHandler
 from tornado.ioloop import IOLoop
@@ -12,51 +14,70 @@ class TailHandler(WebSocketHandler):
     listeners = {}
 
     def open(self, counter_id):
-        cid = counter_id.decode('utf-8')
-        self.subscriptions = [cid]
-        TailHandler.listeners.setdefault(cid, set()).add(self)
+        self.subscriptions = []
+        if counter_id:
+            cid = counter_id.decode('utf-8')
+            self.subscriptions.append(cid)
+            TailHandler.listeners.setdefault(cid, set()).add(self)
 
     def on_message(self, message):
-        """Sockets can subscribe to more than one object_id."""
+        """Sockets can subscribe to more than one object_id.
+        Sending {'<counter_id>': 's'} subscribes and {'<counter_id>': 'u'} un subscribes."""
+        try:
+            parsed = tornado.escape.json_decode(message)
+        except:
+            parsed = {}
 
-        if len(message) != 24:  # bogus namespace
-            return
-        self.subscriptions.append(message)
-        TailHandler.listeners.setdefault(message, set()).add(self)
+        actions = {
+            's': self.subscribe,
+            'u': self.un_subscribe,
+        }
+        for key in parsed:
+            actions.get(parsed[key], lambda x: None)(key)
 
     def on_close(self):
         for sub in self.subscriptions:
-            TailHandler.listeners.get(sub, set()).discard(self)
-            if not TailHandler.listeners.get(sub, 1):
-                del TailHandler.listeners[sub]
+            self.un_subscribe(sub)
+
+    def subscribe(self, counter_id):
+        try:
+            bson.objectid.ObjectId(counter_id)
+        except bson.errors.InvalidId:
+            return
+
+        self.subscriptions.append(counter_id)
+        TailHandler.listeners.setdefault(counter_id, set()).add(self)
+
+    def un_subscribe(self, counter_id):
+        TailHandler.listeners.get(counter_id, set()).discard(self)
+        if not TailHandler.listeners.get(counter_id, 1):
+            del TailHandler.listeners[counter_id]
 
 
 def handle_update(obj):
     try:
         object_id = str(obj['o2']['_id'])
         n = int(obj['o']['$set']['n'])
-    except KeyError as e:
+    except KeyError:
         # TODO: real logging
         print(obj)
         return
 
     for socket in TailHandler.listeners.get(object_id, []):
-        socket.write({'_id': object_id, 'n': n})
+        socket.write({'id': object_id, 'n': n})
 
 
 def handle_delete(obj):
     try:
         object_id = str(obj['o'])
-    except KeyError as e:
+    except KeyError:
         # TODO: real logging
         print(obj)
         return
 
     for socket in TailHandler.listeners.get(object_id, []):
-        socket.write(socket.write({'_id': object_id, 'd': 1}))
-        socket.subscription.discard(object_id)
-        if not socket.subscriptions:
-            socket.close()
+        socket.write(socket.write({'id': object_id, 'd': 1}))
+        socket.subscriptions.discard(object_id)
 
     del TailHandler.listeners[object_id]
 

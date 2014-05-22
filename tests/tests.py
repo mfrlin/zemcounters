@@ -39,7 +39,7 @@ class TestHandlers(TestHandlerBase):
     def test_create_counters_in_different_collections(self):
         test_names = ['/counters/', '/random/', '/123_a/']
         for name in test_names:
-            self.http_client.fetch(self.get_url(name), self.stop, body="123", method='POST')
+            self.http_client.fetch(self.get_url('/cnt' + name), self.stop, body="123", method='POST')
             response = self.wait()
             response.rethrow()
             self.assertEqual(response.code, 201)
@@ -48,50 +48,50 @@ class TestHandlers(TestHandlerBase):
                 "response.headers['Location'] did not start with %s" % name)
 
     def test_increment_counter(self):
-        self.http_client.fetch(self.get_url('/counters/'), self.stop, body="123", method='POST')
+        self.http_client.fetch(self.get_url('/cnt' + '/counters/'), self.stop, body="123", method='POST')
         response = self.wait()
         location = response.headers['Location']
         times_to_inc = 100
         for i in range(times_to_inc):
-            self.http_client.fetch(self.get_url(location), self.stop, body="123", method='POST')
+            self.http_client.fetch(self.get_url('/cnt' + location), self.stop, body="123", method='POST')
             self.wait()
 
-        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='GET')
         response = self.wait()
         counter_value = json.loads(response.body.decode('utf-8'))['n']
         self.assertEqual(counter_value, times_to_inc)
 
     def test_increment_counter_by_different_values(self):
-        self.http_client.fetch(self.get_url('/counters/'), self.stop, body="123", method='POST')
+        self.http_client.fetch(self.get_url('/cnt' + '/counters/'), self.stop, body="123", method='POST')
         response = self.wait()
         location = response.headers['Location']
         times_to_inc = 10
         prev_counter_value = 0
         for i in range(times_to_inc):
-            self.http_client.fetch(self.get_url(location + '/' + str(i)), self.stop, body="123", method='POST')
+            self.http_client.fetch(self.get_url('/cnt' + location + '/' + str(i)), self.stop, body="123", method='POST')
             self.wait()
-            self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+            self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='GET')
             response = self.wait()
             counter_value = json.loads(response.body.decode('utf-8'))['n']
             self.assertEqual(counter_value, prev_counter_value + i)
             prev_counter_value = counter_value
 
     def test_reset_counter(self):
-        self.http_client.fetch(self.get_url('/counters/'), self.stop, body="123", method='POST')
+        self.http_client.fetch(self.get_url('/cnt' + '/counters/'), self.stop, body="123", method='POST')
         response = self.wait()
         location = response.headers['Location']
         for i in range(23):
-            self.http_client.fetch(self.get_url(location + '/' + str(i)), self.stop, body="123", method='POST')
+            self.http_client.fetch(self.get_url('/cnt' + location + '/' + str(i)), self.stop, body="123", method='POST')
             self.wait()
 
-        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='GET')
         response = self.wait()
         counter_value = json.loads(response.body.decode('utf-8'))['n']
         self.assertNotEqual(counter_value, 0)
 
-        self.http_client.fetch(self.get_url(location + '/reset'), self.stop, body="123", method='POST')
+        self.http_client.fetch(self.get_url('/cnt' + location + '/reset'), self.stop, body="123", method='POST')
         self.wait()
-        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='GET')
         response = self.wait()
         counter_value = json.loads(response.body.decode('utf-8'))['n']
         self.assertEqual(counter_value, 0)
@@ -99,41 +99,41 @@ class TestHandlers(TestHandlerBase):
     def test_404_on_counter_not_found(self):
         location = '/fakecounterdir/fakecountername12345678'
 
-        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='GET')
         response = self.wait()
         self.assertEqual(response.code, 404)
 
-        self.http_client.fetch(self.get_url(location), self.stop, method='POST', body='123')
+        self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='POST', body='123')
         response = self.wait()
         self.assertEqual(response.code, 404)
 
-        self.http_client.fetch(self.get_url(location+'/12'), self.stop, method='POST', body='123')
+        self.http_client.fetch(self.get_url('/cnt' + location+'/12'), self.stop, method='POST', body='123')
         response = self.wait()
         self.assertEqual(response.code, 404)
 
-        self.http_client.fetch(self.get_url(location+'/reset'), self.stop, method='POST', body='123')
+        self.http_client.fetch(self.get_url('/cnt' + location+'/reset'), self.stop, method='POST', body='123')
         response = self.wait()
         self.assertEqual(response.code, 404)
 
     def test_delete_counter(self):
-        self.http_client.fetch(self.get_url('/counters/'), self.stop, body="123", method='POST')
+        self.http_client.fetch(self.get_url('/cnt' + '/counters/'), self.stop, body="123", method='POST')
         response = self.wait()
         location = response.headers['Location']
-        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='GET')
         response = self.wait()
         self.assertEqual(response.code, 200)
 
-        self.http_client.fetch(self.get_url(location), self.stop, method='DELETE')
+        self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='DELETE')
         response = self.wait()
         deleted = json.loads(response.body.decode('utf-8'))['del']
         self.assertEqual(deleted, 1)
 
-        self.http_client.fetch(self.get_url(location), self.stop, method='DELETE')
+        self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='DELETE')
         response = self.wait()
         deleted = json.loads(response.body.decode('utf-8'))['del']
         self.assertEqual(deleted, 0)
 
-        self.http_client.fetch(self.get_url(location), self.stop, method='GET')
+        self.http_client.fetch(self.get_url('/cnt' + location), self.stop, method='GET')
         response = self.wait()
         self.assertEqual(response.code, 404)
 
